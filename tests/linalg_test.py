@@ -558,6 +558,26 @@ class NumpyLinalgTest(jtu.JaxTestCase):
       {"testcase_name":
        "_shape={}".format(jtu.format_shape_dtype_string(shape, dtype)),
        "shape": shape, "dtype": dtype, "rng_factory": rng_factory}
+      for shape in [((6, 2), (2, 6), (6, 2)),
+                    ((6, 2), (2, 6)),
+                    ((6, 2), (2, 6), (6, 2), (2, 1)),
+                    ((2,), (2, 6), (6, 2), (2, 2)),
+                    ((6, 2), (2, 6), (6, 2), (2, )),
+                    ((2,), (2, 6), (6, 2), (2, )),
+                    ((30, 35), (35, 15), (15, 5), (5, 10), (10, 20), (20, 25))]
+      for dtype in float_types
+      for rng_factory in [jtu.rand_default]))
+  def testMultidot(self, shape, dtype, rng_factory):
+    _skip_if_unsupported_type(dtype)
+    rng = rng_factory()
+    args_maker = lambda: [[rng(s, dtype) for s in shape]]
+    self._CheckAgainstNumpy(onp.linalg.multi_dot, np.linalg.multi_dot, args_maker,
+                            check_dtypes=False, tol=1e-3)
+
+  @parameterized.named_parameters(jtu.cases_from_list(
+      {"testcase_name":
+       "_shape={}".format(jtu.format_shape_dtype_string(shape, dtype)),
+       "shape": shape, "dtype": dtype, "rng_factory": rng_factory}
       for shape in [(1, 1), (4, 4), (200, 200), (7, 7, 7, 7)]
       for dtype in float_types
       for rng_factory in [jtu.rand_default]))
