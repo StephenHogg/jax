@@ -285,6 +285,11 @@ JAX_ARGMINMAX_RECORDS = [
     op_record("argmax", 1, all_dtypes, nonempty_shapes, jtu.rand_some_equal, []),
 ]
 
+JAX_NANARGMINMAX_RECORDS = [
+    op_record("nanargmin", 1, all_dtypes, nonempty_shapes, jtu.rand_some_nan, []),
+    op_record("nanargmax", 1, all_dtypes, nonempty_shapes, jtu.rand_some_nan, []),
+]
+
 JAX_OPERATOR_OVERLOADS = [
     op_record("__add__", 2, number_dtypes, all_shapes, jtu.rand_default, []),
     op_record("__sub__", 2, number_dtypes, all_shapes, jtu.rand_default, []),
@@ -645,6 +650,31 @@ class LaxBackedNumpyTests(jtu.JaxTestCase):
        "onp_op": getattr(onp, rec.name), "lnp_op": getattr(lnp, rec.name),
        "axis": axis}
       for rec in JAX_ARGMINMAX_RECORDS
+      for shape, dtype in _shape_and_dtypes(rec.shapes, rec.dtypes)
+      for axis in range(-len(shape), len(shape))))
+  def testArgMinMax(self, onp_op, lnp_op, rng_factory, shape, dtype, axis):
+    rng = rng_factory()
+    if dtype == onp.complex128 and jtu.device_under_test() == "gpu":
+      raise unittest.SkipTest("complex128 reductions not supported on GPU")
+
+    def onp_fun(array_to_reduce):
+      return onp_op(array_to_reduce, axis).astype(lnp.int_)
+
+    def lnp_fun(array_to_reduce):
+      return lnp_op(array_to_reduce, axis)
+
+    args_maker = lambda: [rng(shape, dtype)]
+    self._CheckAgainstNumpy(onp_fun, lnp_fun, args_maker, check_dtypes=True)
+    self._CompileAndCheck(lnp_fun, args_maker, check_dtypes=True)
+
+  @parameterized.named_parameters(jtu.cases_from_list(
+      {"testcase_name": "{}_inshape={}_axis={}".format(
+          rec.test_name.capitalize(),
+          jtu.format_shape_dtype_string(shape, dtype), axis),
+       "rng_factory": rec.rng_factory, "shape": shape, "dtype": dtype,
+       "onp_op": getattr(onp, rec.name), "lnp_op": getattr(lnp, rec.name),
+       "axis": axis}
+      for rec in JAX_NANARGMINMAX_RECORDS
       for shape, dtype in _shape_and_dtypes(rec.shapes, rec.dtypes)
       for axis in range(-len(shape), len(shape))))
   def testArgMinMax(self, onp_op, lnp_op, rng_factory, shape, dtype, axis):
