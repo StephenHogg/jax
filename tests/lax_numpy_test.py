@@ -677,7 +677,7 @@ class LaxBackedNumpyTests(jtu.JaxTestCase):
       for rec in JAX_NANARGMINMAX_RECORDS
       for shape, dtype in _shape_and_dtypes(rec.shapes, rec.dtypes)
       for axis in range(-len(shape), len(shape))))
-  def testArgMinMax(self, onp_op, lnp_op, rng_factory, shape, dtype, axis):
+  def testNanArgMinMax(self, onp_op, lnp_op, rng_factory, shape, dtype, axis):
     rng = rng_factory()
     if dtype == onp.complex128 and jtu.device_under_test() == "gpu":
       raise unittest.SkipTest("complex128 reductions not supported on GPU")
@@ -2309,6 +2309,64 @@ class LaxBackedNumpyTests(jtu.JaxTestCase):
                     axis=axis, ddof=ddof, keepdims=keepdims)
       return out.astype(out_dtype)
     lnp_fun = partial(lnp.var, dtype=out_dtype, axis=axis, ddof=ddof, keepdims=keepdims)
+    tol = jtu.tolerance(out_dtype, {onp.float16: 1e-1, onp.float32: 1e-3,
+                                    onp.float64: 1e-3, onp.complex128: 1e-6})
+    self._CheckAgainstNumpy(onp_fun, lnp_fun, args_maker, check_dtypes=True,
+                            tol=tol)
+    self._CompileAndCheck(lnp_fun, args_maker, check_dtypes=True, rtol=tol,
+                          atol=tol)
+
+    @parameterized.named_parameters(
+      jtu.cases_from_list(
+        {"testcase_name":
+         "_shape={}_dtype={}_out_dtype={}_axis={}_ddof={}_keepdims={}"
+         .format(shape, dtype, out_dtype, axis, ddof, keepdims),
+         "shape": shape, "dtype": dtype, "out_dtype": out_dtype, "axis": axis,
+         "ddof": ddof, "keepdims": keepdims, "rng_factory": rng_factory}
+        for shape in [(5,), (10, 5)]
+        for dtype in all_dtypes
+        for out_dtype in inexact_dtypes
+        for axis in [None, 0, -1]
+        for ddof in [0, 1, 2]
+        for keepdims in [False, True]
+        for rng_factory in [jtu.rand_some_nan]))
+  def testNanVar(self, shape, dtype, out_dtype, axis, ddof, keepdims, rng_factory):
+    rng = rng_factory()
+    args_maker = self._GetArgsMaker(rng, [shape], [dtype])
+    def onp_fun(x):
+      out = onp.nanvar(x.astype(lnp.promote_types(onp.float32, dtype)),
+                    axis=axis, ddof=ddof, keepdims=keepdims)
+      return out.astype(out_dtype)
+    lnp_fun = partial(lnp.nanvar, dtype=out_dtype, axis=axis, ddof=ddof, keepdims=keepdims)
+    tol = jtu.tolerance(out_dtype, {onp.float16: 1e-1, onp.float32: 1e-3,
+                                    onp.float64: 1e-3, onp.complex128: 1e-6})
+    self._CheckAgainstNumpy(onp_fun, lnp_fun, args_maker, check_dtypes=True,
+                            tol=tol)
+    self._CompileAndCheck(lnp_fun, args_maker, check_dtypes=True, rtol=tol,
+                          atol=tol)
+
+    @parameterized.named_parameters(
+      jtu.cases_from_list(
+        {"testcase_name":
+         "_shape={}_dtype={}_out_dtype={}_axis={}_ddof={}_keepdims={}"
+         .format(shape, dtype, out_dtype, axis, ddof, keepdims),
+         "shape": shape, "dtype": dtype, "out_dtype": out_dtype, "axis": axis,
+         "ddof": ddof, "keepdims": keepdims, "rng_factory": rng_factory}
+        for shape in [(5,), (10, 5)]
+        for dtype in all_dtypes
+        for out_dtype in inexact_dtypes
+        for axis in [None, 0, -1]
+        for ddof in [0, 1, 2]
+        for keepdims in [False, True]
+        for rng_factory in [jtu.rand_some_nan]))
+  def testNanStd(self, shape, dtype, out_dtype, axis, ddof, keepdims, rng_factory):
+    rng = rng_factory()
+    args_maker = self._GetArgsMaker(rng, [shape], [dtype])
+    def onp_fun(x):
+      out = onp.nanstd(x.astype(lnp.promote_types(onp.float32, dtype)),
+                    axis=axis, ddof=ddof, keepdims=keepdims)
+      return out.astype(out_dtype)
+    lnp_fun = partial(lnp.nanstd, dtype=out_dtype, axis=axis, ddof=ddof, keepdims=keepdims)
     tol = jtu.tolerance(out_dtype, {onp.float16: 1e-1, onp.float32: 1e-3,
                                     onp.float64: 1e-3, onp.complex128: 1e-6})
     self._CheckAgainstNumpy(onp_fun, lnp_fun, args_maker, check_dtypes=True,
